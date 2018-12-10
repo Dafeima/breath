@@ -2,7 +2,6 @@
 
 import argparse
 
-
 import time
 from datetime import date
 import sys
@@ -13,6 +12,7 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 parser = argparse.ArgumentParser(description='Display a stopwatch while counting your breaths.  Upload the data to a Google Sheet.', epilog='Whatever an enemy can do to an enemy, or whatever a foe can do to a foe, what the ill directed mind can do to you... is even worse. --Buddha, Dhammapada, #42')
 parser.add_argument("-b", "--breaths", help="Optional breath count #", dest="breath_count")
+parser.add_argument("-d", "--delete", help="Delete the last row in the spreadsheet.  Use this if you want to erase the last session.", action="store_true", dest="delete_last")
 args = parser.parse_args()
 
 
@@ -41,6 +41,16 @@ def stopwatch(breath_number):
         print('Session completed')
         update_sheet(ts, breath_number)
 
+def get_sheet():
+    scope = ['https://spreadsheets.google.com/feeds',
+         'https://www.googleapis.com/auth/drive']
+    credentials = ServiceAccountCredentials.from_json_keyfile_name('Breath-a07644f00238.json', scope)
+    gc = gspread.authorize(credentials)
+    
+    wks = gc.open("Breath").sheet1
+
+    return wks
+
 
 def update_sheet(ts, breath_number):
     myDate = date.today()
@@ -48,19 +58,26 @@ def update_sheet(ts, breath_number):
     elapsed = human_time(ts)
 
     new_row = [dateStr, elapsed, breath_number]
-    
+    wks = get_sheet()
+    wks.append_row(new_row, value_input_option='RAW')
+
+def get_sheet():
     scope = ['https://spreadsheets.google.com/feeds',
          'https://www.googleapis.com/auth/drive']
     credentials = ServiceAccountCredentials.from_json_keyfile_name('Breath-a07644f00238.json', scope)
     gc = gspread.authorize(credentials)
-
     wks = gc.open("Breath").sheet1
-    wks.append_row(new_row, value_input_option='RAW')
+    return wks
 
-
+def delete_last():
+    wks = get_sheet()
+    last_row = wks.row_count
+    wks.delete_row(last_row)
 
 
 if __name__ == "__main__":
+    if args.delete_last:
+        delete_last()    
     if args.breath_count:
         stopwatch(args.breath_count)
     else:
